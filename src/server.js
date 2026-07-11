@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { newsWebhookRouter } from "./routes/newsWebhook.js";
+import { apifyWebhookRouter } from "./routes/apifyWebhook.js";
 import { paymentWebhookRouter } from "./routes/paymentWebhook.js";
 
 const app = express();
@@ -14,6 +15,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/news", newsWebhookRouter);
+app.use("/api/news", apifyWebhookRouter);
 app.use("/api/v1/webhooks", paymentWebhookRouter);
 
 app.use((req, res) => {
