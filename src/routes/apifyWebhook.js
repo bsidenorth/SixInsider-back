@@ -62,6 +62,11 @@ apifyWebhookRouter.post("/apify-webhook", requireSecretAndPlatform, async (req, 
     const saved = results.filter((r) => r.status === "saved").length;
     const skipped = results.filter((r) => r.status === "skipped").length;
 
+    // eslint-disable-next-line no-console
+    console.log(`[news/apify-webhook] platform=${req.platform} recebidos=${items.length} salvos=${saved} pulados=${skipped}`);
+    // eslint-disable-next-line no-console
+    console.log("[news/apify-webhook] detalhes:", JSON.stringify(results, null, 2));
+
     return res.status(200).json({ received: items.length, saved, skipped, details: results });
   } catch (err) {
     // eslint-disable-next-line no-console
