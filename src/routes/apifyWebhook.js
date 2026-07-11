@@ -53,8 +53,21 @@ apifyWebhookRouter.post("/apify-webhook", requireSecretAndPlatform, async (req, 
     const items = await datasetRes.json();
 
     const results = [];
+    let loggedSample = false;
     for (const raw of items) {
       const mapped = mapScrapedItem(raw, req.platform);
+
+      // Se não conseguiu extrair título/link, imprime os campos reais do
+      // item cru (só do primeiro, pra não poluir o log) — assim dá pra
+      // ver exatamente como esse Actor nomeia os campos e ajustar o mapa.
+      if (!loggedSample && (!mapped.title || mapped.title === "Tweet sem texto" || !mapped.link)) {
+        // eslint-disable-next-line no-console
+        console.log("[news/apify-webhook] AMOSTRA DO ITEM CRU (campos disponíveis):", Object.keys(raw));
+        // eslint-disable-next-line no-console
+        console.log("[news/apify-webhook] AMOSTRA DO ITEM CRU (conteúdo):", JSON.stringify(raw).slice(0, 1500));
+        loggedSample = true;
+      }
+
       const result = await ingestNewsItem(mapped);
       results.push(result);
     }
@@ -64,8 +77,6 @@ apifyWebhookRouter.post("/apify-webhook", requireSecretAndPlatform, async (req, 
 
     // eslint-disable-next-line no-console
     console.log(`[news/apify-webhook] platform=${req.platform} recebidos=${items.length} salvos=${saved} pulados=${skipped}`);
-    // eslint-disable-next-line no-console
-    console.log("[news/apify-webhook] detalhes:", JSON.stringify(results, null, 2));
 
     return res.status(200).json({ received: items.length, saved, skipped, details: results });
   } catch (err) {
@@ -80,12 +91,15 @@ apifyWebhookRouter.post("/apify-webhook", requireSecretAndPlatform, async (req, 
 // Tenta vários nomes de campo alternativos porque cada Actor nomeia diferente.
 function mapScrapedItem(raw, platform) {
   if (platform === "twitter") {
+    const text = raw.text ?? raw.fullText ?? raw.full_text ?? raw.tweetText ?? raw.content ?? raw.description ?? "";
+    const link =
+      raw.twitterUrl ?? raw.url ?? raw.tweetUrl ?? raw.link ?? raw.permalink ?? raw.statusUrl ?? "";
     return {
-      title: (raw.text ?? raw.fullText ?? "").slice(0, 140) || "Tweet sem texto",
-      link: raw.twitterUrl ?? raw.url ?? raw.tweetUrl,
+      title: text ? text.slice(0, 140) : "Tweet sem texto",
+      link,
       platform: "twitter",
-      content: raw.text ?? raw.fullText ?? "",
-      publishedAt: raw.createdAt ?? raw.timestamp,
+      content: text,
+      publishedAt: raw.createdAt ?? raw.timestamp ?? raw.date ?? raw.created_at,
     };
   }
 
